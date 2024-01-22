@@ -1,0 +1,8 @@
+version: '3'
+services:
+  selenium-chrome-debug:
+    image: selenium/standalone-chrome-debug
+    ports:
+      - "4444:4444"
+      - "5900:5900"
+    shm_size: 2g
