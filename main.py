@@ -154,22 +154,15 @@ def get_paged_url(url: str, n: int):
     # 重新组合 URL 部分
     return '/'.join(parts)
 
-# 访问租房列表页面
 def scrape_zf():
     for url_zf_list in get_all_zf_entrypoint():
         n = 1
 
         driver_zf.get(url_zf_list)
         time.sleep(1)
-        # 获取页面源码
         html = driver_zf.page_source
-
-        # 解析HTML并提取数据
         rental_data = parse_html(html)
-
-        # 将数据保存到CSV文件
         save_to_csv(rental_data, csv_zf)
-        
 
         k = int(driver_zf.find_element(By.XPATH, '//span[@class="content__title--hl"]').text.strip())
         m = math.ceil(k / 30)
@@ -181,20 +174,14 @@ def scrape_zf():
         while n <= m:
             url_zf_list = get_paged_url(url_zf_list, n)
             driver_zf.get(url_zf_list)
-            time.sleep(1)  # 等待页面加载
-
-            # 获取页面源码
+            time.sleep(1)
             html = driver_zf.page_source
-
-            # 解析HTML并提取数据
             rental_data = parse_html(html)
             if not rental_data:
                 print(f'Page {n}/{m} is empty, stop paging')
                 break 
-
-            # 将数据保存到CSV文件
             save_to_csv(rental_data, csv_zf)
-            
+
             print(f'Scrape ZF data page:{n} sucessfully!')
             n = n + 1
 
