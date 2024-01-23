@@ -42,11 +42,17 @@ def configure_driver():
 # 配置WebDriver
 driver_zf, driver_esf = configure_driver()
 
+links_index_file = './output/links.idx'
 csv_zf = './output/zf.csv'
 url_zf_base = 'https://bj.zu.ke.com'
 
 
 def get_all_zf_entrypoint():
+    if os.path.exists(links_index_file) and os.path.getsize(links_index_file) > 0:
+        with open(links_index_file, 'r', encoding='utf-8') as file:
+            links = [line.strip() for line in file.readlines()]
+            return links
+
     base_url = 'https://bj.zu.ke.com/zufang/rt200600000001' 
     driver_zf.get(base_url)
     time.sleep(1)  # 等待页面加载
@@ -69,6 +75,10 @@ def get_all_zf_entrypoint():
             if e.text.strip() == '不限':
                 continue
             links.append(e.get_attribute('href'))
+
+    with open(links_index_file, 'w', encoding='utf-8') as file:
+        file.write('\n'.join(links))
+
     return links
 
 
@@ -155,19 +165,26 @@ def get_paged_url(url: str, n: int):
     return '/'.join(parts)
 
 def scrape_zf():
-    for url_zf_list in get_all_zf_entrypoint():
+    all_links = get_all_zf_entrypoint()
+    n_links = len(all_links)
+    i_links = 0
+    for url_zf_list in all_links:
+        i_links += 1
         n = 1
 
         driver_zf.get(url_zf_list)
         time.sleep(1)
         html = driver_zf.page_source
         rental_data = parse_html(html)
+        if not rental_data:
+            print(f'Link: {i_links}/{n_links} {url_zf_list} has no data, try next link')
+            continue
         save_to_csv(rental_data, csv_zf)
 
         k = int(driver_zf.find_element(By.XPATH, '//span[@class="content__title--hl"]').text.strip())
         m = math.ceil(k / 30)
 
-        print(f'Link: {url_zf_list}; {k} items, {m} pages to scrape')
+        print(f'Link: {i_links}/{n_links} {url_zf_list}; {k} items, {m} pages to scrape')
         print(f'Scrape ZF data page:{n} sucessfully!')
         n = n + 1
 
