@@ -28,34 +28,29 @@ def configure_driver():
     #chrome_options.add_argument("--disable-gpu")
     #chrome_options.set_capability('goog:loggingPrefs', {'performance': 'ALL'})
     # 连接到Docker容器中的Selenium
-    driver1 = webdriver.Remote(
+    driver = webdriver.Remote(
         command_executor='http://selenium-chrome-debug:4444/wd/hub',
         options=chrome_options
     )
-    driver2 = webdriver.Remote(
-        command_executor='http://selenium-chrome-debug:4444/wd/hub',
-        options=chrome_options
-    )
-    return driver1, driver2
+    return driver
 
 
 # 配置WebDriver
-driver_zf, driver_esf = configure_driver()
+driver_zf = configure_driver()
 
-links_index_file = './output/links.idx'
+links_zf_file = './output/links_zf.idx'
 csv_zf = './output/zf.csv'
 url_zf_base = 'https://bj.zu.ke.com'
 
 
 def get_all_zf_entrypoint():
-    if os.path.exists(links_index_file) and os.path.getsize(links_index_file) > 0:
-        with open(links_index_file, 'r', encoding='utf-8') as file:
+    if os.path.exists(links_zf_file) and os.path.getsize(links_zf_file) > 0:
+        with open(links_zf_file, 'r', encoding='utf-8') as file:
             links = [line.strip() for line in file.readlines()]
             return links
 
     base_url = 'https://bj.zu.ke.com/zufang/rt200600000001' 
     driver_zf.get(base_url)
-    time.sleep(1)  # 等待页面加载
     elements = driver_zf.find_elements(By.XPATH, "//li[@data-type='district']/a")
 
     hrefs = []
@@ -69,14 +64,13 @@ def get_all_zf_entrypoint():
 
     for href in hrefs:
         driver_zf.get(href)
-        time.sleep(1)  # 等待页面加载
         eles = driver_zf.find_elements(By.XPATH, "//li[@data-type='bizcircle']/a")
         for e in eles:
             if e.text.strip() == '不限':
                 continue
             links.append(e.get_attribute('href'))
 
-    with open(links_index_file, 'w', encoding='utf-8') as file:
+    with open(links_zf_file, 'w', encoding='utf-8') as file:
         file.write('\n'.join(links))
 
     return links
@@ -98,7 +92,7 @@ def parse_html(html):
 
         a_tags = des_tag.find_all('a')
         if a_tags:  # 检查是否存在a标签
-            community_id = a_tags[-1]['href'].split('/')[-1]
+            community_id = a_tags[-1]['href'].split('/')[-2].lstrip('c')
         else:
             continue;
         
@@ -167,19 +161,18 @@ def get_paged_url(url: str, n: int):
 def scrape_zf():
     all_links = get_all_zf_entrypoint()
     n_links = len(all_links)
-    i_links = 0
-    for url_zf_list in all_links:
+    i_links = 101
+    for url_zf_list in all_links[i_links:]:
         i_links += 1
         n = 1
 
         driver_zf.get(url_zf_list)
-        time.sleep(1)
         html = driver_zf.page_source
-        rental_data = parse_html(html)
-        if not rental_data:
+        data_zf = parse_html(html)
+        if not data_zf:
             print(f'Link: {i_links}/{n_links} {url_zf_list} has no data, try next link')
             continue
-        save_to_csv(rental_data, csv_zf)
+        save_to_csv(data_zf, csv_zf)
 
         k = int(driver_zf.find_element(By.XPATH, '//span[@class="content__title--hl"]').text.strip())
         m = math.ceil(k / 30)
@@ -191,13 +184,12 @@ def scrape_zf():
         while n <= m:
             url_zf_list = get_paged_url(url_zf_list, n)
             driver_zf.get(url_zf_list)
-            time.sleep(1)
             html = driver_zf.page_source
-            rental_data = parse_html(html)
-            if not rental_data:
+            data_zf = parse_html(html)
+            if not data_zf:
                 print(f'Page {n}/{m} is empty, stop paging')
                 break 
-            save_to_csv(rental_data, csv_zf)
+            save_to_csv(data_zf, csv_zf)
 
             print(f'Scrape ZF data page:{n} sucessfully!')
             n = n + 1
