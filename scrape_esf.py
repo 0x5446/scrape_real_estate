@@ -71,10 +71,8 @@ def get_all_esf_entrypoint():
 
 
 def parse_html():
-    eles_li = driver.find_elements(By.XPATH, "//ul[@class='sellListContent']/li[@class='clear']")
-    if not eles_li:
-        return []
     data = []
+    eles_li = driver.find_elements(By.XPATH, "//ul[@class='sellListContent']/li[@class='clear']")
     for li in eles_li:
         a = li.find_element(By.XPATH, ".//a[@class='VIEWDATA CLICKDATA maidian-detail']")
         title = a.text.strip()

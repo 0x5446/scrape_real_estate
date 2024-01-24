@@ -5,7 +5,6 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from bs4 import BeautifulSoup
 import os, sys
 import csv
 import time
@@ -36,7 +35,7 @@ def configure_driver():
 
 
 # 配置WebDriver
-driver_zf = configure_driver()
+driver = configure_driver()
 
 links_zf_file = './output/links_zf.idx'
 csv_zf = './output/zf.csv'
@@ -50,8 +49,8 @@ def get_all_zf_entrypoint():
             return links
 
     base_url = 'https://bj.zu.ke.com/zufang/rt200600000001' 
-    driver_zf.get(base_url)
-    elements = driver_zf.find_elements(By.XPATH, "//li[@data-type='district']/a")
+    driver.get(base_url)
+    elements = driver.find_elements(By.XPATH, "//li[@data-type='district']/a")
 
     hrefs = []
     links = []
@@ -63,8 +62,8 @@ def get_all_zf_entrypoint():
         hrefs.append(href)
 
     for href in hrefs:
-        driver_zf.get(href)
-        eles = driver_zf.find_elements(By.XPATH, "//li[@data-type='bizcircle']/a")
+        driver.get(href)
+        eles = driver.find_elements(By.XPATH, "//li[@data-type='bizcircle']/a")
         for e in eles:
             if e.text.strip() == '不限':
                 continue
@@ -76,55 +75,61 @@ def get_all_zf_entrypoint():
     return links
 
 
-def parse_html(html):
-    """解析HTML页面并提取所需数据"""
-    soup = BeautifulSoup(html, 'html.parser')
-    items = soup.find_all('div', class_='content__list--item')
-    if soup.find('div', class_='content__empty1'):
-        return []
+def parse_html():
+
     data = []
-    for item in items:
-        title_tag = item.find('p', class_='content__list--item--title')
-        title = title_tag.a.get_text().strip()
-        link = url_zf_base + title_tag.a['href']
 
-        des_tag = item.find('p', class_='content__list--item--des')
+    list = driver.find_elements(By.XPATH, "//div[@class='content__list']/div[@data-el='listItem']")
+    
+    i = 0
+    n = len(list)
+    for div in list:    
+        i += 1
+        a = div.find_element(By.XPATH, ".//div[@class='content__list--item--main']//a[1]")
+        title = a.text.strip()
+        link = a.get_attribute('href')
 
-        a_tags = des_tag.find_all('a')
-        if a_tags:  # 检查是否存在a标签
-            community_id = a_tags[-1]['href'].split('/')[-2].lstrip('c')
+        info = div.find_element(By.XPATH, ".//p[@class='content__list--item--des']")
+
+        a = info.find_elements(By.XPATH, ".//a")
+        if a:  # 检查是否存在a标签
+            community_id = a[-1].get_attribute('href').split('/')[-2].lstrip('c')
         else:
             continue;
-        
-        details = [d.strip() for d in des_tag.get_text(strip=True).split('/') if d.strip()]
 
-        # 检查是否有足够的数据，如果没有，则跳过这个项目
-        if len(details) < 5:
-            print('details columns are less than 5', file=sys.stderr)
+        community = '-'.join([i.text.strip() for i in a])
+        
+        info = [e.strip() for e in info.text.strip().split('/') if e.strip()]
+
+        if len(info) < 3:
+            print(f'Info items less than 3, parse next. {1}/{n}@current_url:{driver.current_url}', file=sys.stderr)
             continue
 
-        community = details[-5]
-        size = details[-4]
-        orientation = details[-3]
-        layout = details[-2]
-        layer_info = [p.strip() for p in details[-1].split()]
-        floors = layer_info[1].replace("（", "").replace("）", "") if len(layer_info) > 1 else 0
-        layer = layer_info[0]
+        orientation = size = layout = ''
+        for e in info:
+            if re.search(r"[东南西北]", e):
+                orientation = e
+            elif e.endswith("㎡"):
+                size = e
+            elif re.search(r"\d.*?(室|厅|卫|房间)", e):
+                layout = e
 
-        price_tag = item.find('span', class_='content__list--item-price')
-        price = price_tag.get_text(strip=True)
-        price = price.replace('元/月', '')
+        if not size:
+            print(f'no size, parse next. {1}/{n}@current_url:{driver.current_url}', file=sys.stderr)
+            continue
+
+        info = '|'.join(info)
+        price = div.find_element(By.XPATH, ".//span[@class='content__list--item-price']/em").text.strip()
 
         data.append({
             'title': title,
             'link': link,
             'community_id': community_id,
             'community': community,
+            'info': info,
             'size': size,
             'orientation': orientation,
             'layout': layout,
-            'layer': layer,
-            'floors': floors,
             'price': price
         })
     return data
@@ -166,15 +171,15 @@ def scrape_zf():
         i_links += 1
         n = 1
 
-        driver_zf.get(url_zf_list)
-        html = driver_zf.page_source
-        data_zf = parse_html(html)
+        driver.get(url_zf_list)
+        html = driver.page_source
+        data_zf = parse_html()
         if not data_zf:
             print(f'Link: {i_links}/{n_links} {url_zf_list} has no data, try next link')
             continue
         save_to_csv(data_zf, csv_zf)
 
-        k = int(driver_zf.find_element(By.XPATH, '//span[@class="content__title--hl"]').text.strip())
+        k = int(driver.find_element(By.XPATH, '//span[@class="content__title--hl"]').text.strip())
         m = math.ceil(k / 30)
 
         print(f'Link: {i_links}/{n_links} {url_zf_list}; {k} items, {m} pages to scrape')
@@ -183,9 +188,9 @@ def scrape_zf():
 
         while n <= m:
             url_zf_list = get_paged_url(url_zf_list, n)
-            driver_zf.get(url_zf_list)
-            html = driver_zf.page_source
-            data_zf = parse_html(html)
+            driver.get(url_zf_list)
+            html = driver.page_source
+            data_zf = parse_html()
             if not data_zf:
                 print(f'Page {n}/{m} is empty, stop paging')
                 break 
