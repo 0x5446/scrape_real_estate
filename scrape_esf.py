@@ -71,23 +71,23 @@ def get_all_esf_entrypoint():
 
 
 def parse_html():
-    eles_li = driver.find_elements(By.XPATH, "//ul[@class='sellListContent']/li")
+    eles_li = driver.find_elements(By.XPATH, "//ul[@class='sellListContent']/li[@class='clear']")
     if not eles_li:
         return []
     data = []
     for li in eles_li:
-        a = li.find_element(By.XPATH, "//a[@class='VIEWDATA CLICKDATA maidian-detail']")
+        a = li.find_element(By.XPATH, ".//a[@class='VIEWDATA CLICKDATA maidian-detail']")
         title = a.text.strip()
         link = a.get_attribute('href')
 
-        a = li.find_element(By.XPATH, "//div[@class='positionInfo']/a")
+        a = li.find_element(By.XPATH, ".//div[@class='positionInfo']/a")
         community = a.text.strip()
         community_id = a.get_attribute('href').split('/')[-2]
 
-        info = li.find_element(By.XPATH, "//div[@class='houseInfo']").text.strip()
+        info = li.find_element(By.XPATH, ".//div[@class='houseInfo']").text.strip()
 
-        price_total = li.find_element(By.XPATH, "//div[@class='totalPrice totalPrice2']/span").text.strip()
-        price_unit = li.find_element(By.XPATH, "//div[@class='unitPrice']/span").text.strip()
+        price_total = li.find_element(By.XPATH, ".//div[@class='totalPrice totalPrice2']/span").text.strip()
+        price_unit = li.find_element(By.XPATH, ".//div[@class='unitPrice']/span").text.strip()
 
         data.append({
             'title': title,
@@ -131,7 +131,7 @@ def get_paged_url(url: str, n: int):
 def scrape_esf():
     all_links = get_all_esf_entrypoint()
     n_links = len(all_links)
-    i_links = 0
+    i_links = 0 #如果脚本中断，此处可设置断点i_links-1继续作业，最终文件数据请手动去重sort |uniq > newfile
     for url_esf_list in all_links[i_links:]:
         i_links += 1
         n = 1

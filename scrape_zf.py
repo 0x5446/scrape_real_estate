@@ -161,7 +161,7 @@ def get_paged_url(url: str, n: int):
 def scrape_zf():
     all_links = get_all_zf_entrypoint()
     n_links = len(all_links)
-    i_links = 101
+    i_links = 0 #如果脚本中断，此处可设置断点i_links-1继续作业，最终文件数据请手动去重sort |uniq > newfile
     for url_zf_list in all_links[i_links:]:
         i_links += 1
         n = 1
